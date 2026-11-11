@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vistos — Importar backup</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    body { align-items: flex-start; }
+    .pagina { max-width: 900px; width: 100%; margin: 0 auto; padding: 24px 20px 80px; }
+    .pagina h1 { font-size: 1.4rem; margin-bottom: 4px; }
+    .pagina .subtitulo { color: var(--tinta-suave); margin-bottom: 24px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 24px; font-size: 0.85rem; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--linha); vertical-align: middle; }
+    th { font-size: 0.75rem; color: var(--tinta-suave); font-weight: 600; }
+    td input[type="text"], td select { width: 100%; padding: 6px 8px; font-size: 0.85rem; border: 1px solid var(--linha); border-radius: 6px; background: var(--papel-alto); color: var(--tinta); }
+    .selo { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: 600; }
+    .selo.nova { background: var(--acento-suave); color: var(--acento); }
+    .selo.existente { background: var(--alerta-suave); color: var(--alerta); }
+    #log { font-family: monospace; font-size: 0.8rem; background: var(--papel-alto); border: 1px solid var(--linha); border-radius: 10px; padding: 14px; max-height: 300px; overflow-y: auto; white-space: pre-wrap; }
+    .barra-acoes { display: flex; gap: 10px; margin-bottom: 24px; flex-wrap: wrap; }
+  </style>
+</head>
+<body>
+  <div id="tela-login" class="cartao">
+    <h1>Vistos</h1>
+    <p class="subtitulo">Importação de backup — acesso restrito</p>
+    <button id="btn-login-google" class="btn-primario">Entrar com Google</button>
+  </div>
+
+  <div id="tela-negado" class="cartao escondido">
+    <div class="carimbo">Acesso negado</div>
+    <p>Esta conta não tem permissão para usar o Vistos.</p>
+    <button id="btn-logout-negado" class="btn-secundario">Trocar de conta</button>
+  </div>
+
+  <div id="tela-app" class="escondido">
+    <div class="topo-app">
+      <h1>Vistos</h1>
+      <div class="topo-acoes">
+        <span id="usuario-nome" class="usuario-nome"></span>
+        <button id="btn-logout" class="btn-secundario btn-sair">Sair</button>
+      </div>
+    </div>
+    <div class="pagina">
+      <h1>Importar backup do Vistos.exe</h1>
+      <p class="subtitulo">Página de uso único. Lê um backup .json exportado do app desktop e importa as turmas, alunos e vistos lançados pra dentro deste banco de dados. Nada é enviado a nenhum lugar — o arquivo é lido direto no seu navegador.</p>
+
+      <div class="campo-form">
+        <label>Arquivo de backup (.json)</label>
+        <input type="file" id="input-arquivo" accept=".json" />
+      </div>
+
+      <div id="area-preview" class="escondido">
+        <h2 style="font-size:1.1rem; margin-top:24px;">Revise antes de importar</h2>
+        <p class="subtitulo">Confira a escola e a disciplina de cada turma — ajuste o que precisar antes de confirmar. "Existente" significa que já encontrei uma turma com esse nome nesta escola no seu banco; vou completar com o que faltar, sem duplicar.</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Turma (backup)</th>
+              <th>Status</th>
+              <th>Escola</th>
+              <th>Disciplina</th>
+              <th>Sistema</th>
+              <th>Alunos</th>
+              <th>Atividades</th>
+            </tr>
+          </thead>
+          <tbody id="corpo-tabela-preview"></tbody>
+        </table>
+
+        <div class="barra-acoes">
+          <button id="btn-confirmar-importacao" class="btn-primario">Confirmar importação</button>
+        </div>
+      </div>
+
+      <div id="area-log" class="escondido">
+        <h2 style="font-size:1.1rem;">Progresso</h2>
+        <div id="log"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore-compat.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script src="js/usuarios.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/importar.js"></script>
+</body>
+</html>

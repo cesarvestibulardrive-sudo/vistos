@@ -1,0 +1,145 @@
+// ============================================================
+// Regras de segurança do Firestore — Vistos (multiusuário/papéis)
+//
+// Papéis: professor, coordenacao, direcao, webmaster.
+// "cesar.vestibular.drive@gmail.com" é o Webmaster principal — tem
+// acesso total sempre, mesmo antes de existir qualquer documento em
+// "usuarios" (bootstrap: ninguém pode ficar trancado para fora do
+// próprio sistema).
+//
+// Cada turma/atividade guarda:
+//   - escolaId: liga a escola cadastrada (coleção "escolas")
+//   - professoresEmails: e-mails dos professores responsáveis
+// Quem tem papel de coordenação/direção/webmaster para aquela escola
+// (escolaId dentro de usuarios/{email}.escolasPermitidas) acessa tudo
+// da escola. Um professor só acessa o que está em professoresEmails.
+//
+// Documentos antigos (de antes dessa mudança) não têm escolaId nem
+// professoresEmails — por isso só o Webmaster principal os acessa até
+// alguém rodar a migração em Admin ("Vincular turmas antigas...").
+// ============================================================
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- Funções auxiliares ----------
+
+    function logado() {
+      return request.auth != null;
+    }
+
+    function email() {
+      return request.auth.token.email;
+    }
+
+    function isSuperAdmin() {
+      return logado() && email() == "cesar.vestibular.drive@gmail.com";
+    }
+
+    function usuarioExiste() {
+      return exists(/databases/$(database)/documents/usuarios/$(email()));
+    }
+
+    function dadosUsuario() {
+      return get(/databases/$(database)/documents/usuarios/$(email())).data;
+    }
+
+    function usuarioAtivo() {
+      return logado() && usuarioExiste() && dadosUsuario().ativo != false;
+    }
+
+    function temPapel(papel) {
+      return isSuperAdmin()
+        || (usuarioAtivo() && ('papeis' in dadosUsuario()) && dadosUsuario().papeis[papel] == true);
+    }
+
+    function eWebmaster() {
+      return temPapel('webmaster');
+    }
+
+    function temAlgumPapelDeAcesso() {
+      return temPapel('professor') || temPapel('coordenacao') || temPapel('direcao') || eWebmaster();
+    }
+
+    // Coordenação/Direção/Webmaster só acessam uma escola se ela estiver
+    // na lista escolasPermitidas do próprio usuário.
+    function podeEscola(escolaId) {
+      return isSuperAdmin()
+        || (usuarioAtivo()
+            && escolaId != null
+            && ('escolasPermitidas' in dadosUsuario())
+            && (escolaId in dadosUsuario().escolasPermitidas));
+    }
+
+    // Acesso a um documento (turma ou atividade) que tenha os campos
+    // escolaId e professoresEmails — usado em toda leitura/escrita
+    // dessas coleções e das subcoleções delas.
+    function podeNoDocumento(dados) {
+      return isSuperAdmin()
+        || podeEscola(dados.escolaId)
+        || (('professoresEmails' in dados) && dados.professoresEmails is list && email() in dados.professoresEmails);
+    }
+
+    // ---------- usuarios ----------
+    // Cada um só lê o próprio documento (pra saber seus papéis no
+    // login); só o Webmaster lista/gerencia todos.
+    match /usuarios/{usuarioEmail} {
+      allow read: if isSuperAdmin() || eWebmaster() || email() == usuarioEmail;
+      allow write: if isSuperAdmin() || eWebmaster();
+    }
+
+    // ---------- escolas ----------
+    match /escolas/{escolaId} {
+      allow read: if isSuperAdmin() || eWebmaster() || podeEscola(escolaId);
+      allow write: if isSuperAdmin() || eWebmaster();
+    }
+
+    // ---------- turmas ----------
+    match /turmas/{turmaId} {
+      allow read: if podeNoDocumento(resource.data);
+      allow create: if isSuperAdmin() || (temAlgumPapelDeAcesso() && podeNoDocumento(request.resource.data));
+      allow update, delete: if podeNoDocumento(resource.data);
+
+      match /alunos/{id} {
+        allow read, write: if podeNoDocumento(get(/databases/$(database)/documents/turmas/$(turmaId)).data);
+      }
+      match /disciplinas/{id} {
+        allow read, write: if podeNoDocumento(get(/databases/$(database)/documents/turmas/$(turmaId)).data);
+      }
+      match /chamadas/{id} {
+        allow read, write: if podeNoDocumento(get(/databases/$(database)/documents/turmas/$(turmaId)).data);
+      }
+      match /ocorrencias/{id} {
+        allow read, write: if podeNoDocumento(get(/databases/$(database)/documents/turmas/$(turmaId)).data);
+      }
+      match /pesos/{id} {
+        allow read, write: if podeNoDocumento(get(/databases/$(database)/documents/turmas/$(turmaId)).data);
+      }
+    }
+
+    // ---------- atividades (Visto) ----------
+    match /atividades/{atividadeId} {
+      allow read: if podeNoDocumento(resource.data);
+      allow create: if isSuperAdmin() || (temAlgumPapelDeAcesso() && podeNoDocumento(request.resource.data));
+      allow update, delete: if podeNoDocumento(resource.data);
+
+      match /vistos/{id} {
+        allow read, write: if podeNoDocumento(get(/databases/$(database)/documents/atividades/$(atividadeId)).data);
+      }
+    }
+
+    // ---------- atividadesSeminario (independentes por turma) ----------
+    match /atividadesSeminario/{id} {
+      allow read, update, delete: if podeNoDocumento(get(/databases/$(database)/documents/turmas/$(resource.data.turmaId)).data);
+      allow create: if isSuperAdmin()
+        || (temAlgumPapelDeAcesso() && podeNoDocumento(get(/databases/$(database)/documents/turmas/$(request.resource.data.turmaId)).data));
+    }
+
+    // ---------- indicador de sincronização ----------
+    match /_ping/{id} {
+      allow read, write: if logado();
+    }
+  }
+}

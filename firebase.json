@@ -1,0 +1,29 @@
+﻿{
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "hosting": {
+    "public": ".",
+    "site": "visto-2d3a5",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "!.well-known/**",
+      "**/node_modules/**",
+      "**/*.exe",
+      "**/*.msi",
+      "**/*.dmg",
+      "**/*.zip",
+      "**/*.rar",
+      "**/*.apk",
+      "**/*.aab",
+      "**/*.keystore"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
+}
